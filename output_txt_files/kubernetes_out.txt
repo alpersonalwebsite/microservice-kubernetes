@@ -1,0 +1,15 @@
+(.devops) user@User-MacBook-Pro project-ml-microservice-kubernetes (master) (email@outlook.com)  $ ./make_prediction.sh
+Port: 8000
+{
+  "prediction": [
+    20.35373177134412
+  ]
+}
+
+(.devops) user@User-MacBook-Pro project-ml-microservice-kubernetes (master) (email@outlook.com)  $ ./run_kubernetes.sh
+kubectl run --generator=deployment/apps.v1 is DEPRECATED and will be removed in a future version. Use kubectl run --generator=run-pod/v1 or kubectl create instead.
+Error from server (AlreadyExists): deployments.apps "app" already exists
+NAME                   READY   STATUS    RESTARTS   AGE
+app-597cb487b7-pvbbk   1/1     Running   0          14m
+Forwarding from 127.0.0.1:8000 -> 80
+Forwarding from [::1]:8000 -> 80

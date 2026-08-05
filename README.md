@@ -21,9 +21,20 @@ source ~/.devops/bin/activate
 You should see something like:
 `(.devops) User-MacBook-Pro project-ml-microservice-kubernetes $`
 
-* Run `make install` to install the necessary dependencies. To ensure you have the right version of `pylint` run: `pip3 install pylint`
+* Run `make install` to install the necessary dependencies. `pylint` is pinned in `requirements.txt`, so there is no separate install step.
 
-* Run `make lint`. Expected result: `Your code has been rated at 10.00/10 (previous run: 8.93/10, +1.07)`
+* Run `make train`. This fits the model and the scaler from `model_data/housing.csv`
+and writes `model_data/boston_housing_prediction.joblib` and
+`model_data/scaler.joblib`.
+
+  **No model is committed to this repository, on purpose.** The `.joblib` that used
+  to be here was written by a scikit-learn old enough that the version pinned in
+  `requirements.txt` could no longer load it (it referenced
+  `sklearn.ensemble.gradient_boosting` and `sklearn.externals.joblib`, both removed
+  by 0.24). Generating it locally means the scikit-learn you installed is always the
+  one that wrote it. `app.py` tells you to run this if the artifacts are missing.
+
+* Run `make lint`. Expected result: `Your code has been rated at 10.00/10`
 
 While you still have your `.devops` environment activated, you will still need to install:
 
@@ -38,6 +49,9 @@ At this point, you environment should be ready.
 ### Running `app.py`
 
 1. Standalone:  `python app.py`
+
+   It listens on **8080** by default, not 80: the container runs as a non-root user
+   and an unprivileged user cannot bind a port below 1024. Override with `PORT`.
 2. Run in Docker:  First, be sure that you have `Docker` running. Then: `./run_docker.sh`
 
 Example output:
@@ -59,16 +73,14 @@ Port: 8000
 
 ... and, in the one running docker...
 ```shell
-[2020-03-23 16:12:55,767] INFO in app: JSON payload: 
-{'CHAS': {'0': 0}, 'RM': {'0': 6.575}, 'TAX': {'0': 296.0}, 'PTRATIO': {'0': 15.3}, 'B': {'0': 396.9}, 'LSTAT': {'0': 4.98}}
-[2020-03-23 16:12:55,778] INFO in app: Inference payload DataFrame: 
-   CHAS     RM    TAX  PTRATIO      B  LSTAT
-0     0  6.575  296.0     15.3  396.9   4.98
-[2020-03-23 16:12:55,785] INFO in app: Scaling Payload: 
-   CHAS     RM    TAX  PTRATIO      B  LSTAT
-0     0  6.575  296.0     15.3  396.9   4.98
+[2020-03-23 16:12:55,767] INFO in app: Received a prediction request
+[2020-03-23 16:12:55,785] INFO in app: Scaling payload with the trained scaler
+[2020-03-23 16:12:55,790] INFO in app: Prediction: [28.320740468089017]
 172.17.0.1 - - [23/Mar/2020 16:12:55] "POST /predict HTTP/1.1" 200 -
 ```
+
+The request payload is no longer echoed into the log. Prediction inputs are
+somebody's data, and a log is the wrong place for it.
 
 3. Upload your Docker image
 * [Create an account](cloud.docker.com) and log into the Docker public registry
@@ -125,48 +137,54 @@ users:
 5. Deploy with Kubernetes
 * Run in Kubernetes:  `./run_kubernetes.sh`
 
+This applies `k8s-deployment.yaml` and waits for the rollout before forwarding the
+port.
+
+**What changed and why.** The script used to run:
+
+```shell
+kubectl run app --image=$dockerpath --port=80
+kubectl port-forward deployment/app 8000:80
+```
+
+In 2020 `kubectl run` still created a Deployment through `--generator`, which is why
+the output pasted below says `deployment.apps/app created` alongside a deprecation
+warning. `kubectl` 1.18 removed that generator, so today the same command creates a
+bare **Pod** and `port-forward deployment/app` fails with `deployments.apps "app" not
+found`. The manifest does the job explicitly instead, and adds what a review would
+ask for either way: resource requests and limits, `runAsNonRoot` with the UID the
+image actually uses, `allowPrivilegeEscalation: false`, a read-only root filesystem
+with an `emptyDir` on `/tmp`, all capabilities dropped, and readiness and liveness
+probes.
+
+The second thing it fixes is the race the old output shows. `kubectl port-forward`
+ran immediately after `kubectl run`, so the first invocation always failed with
+`unable to forward port because pod is not running`, and the README told you to run
+the whole script again. `kubectl rollout status` waits instead.
+
 Example output:
 ```shell
-(.devops) user@User-MacBook-Pro project-ml-microservice-kubernetes (master) (email@outlook.com)  $ ./run_kubernetes.sh
-kubectl run --generator=deployment/apps.v1 is DEPRECATED and will be removed in a future version. Use kubectl run --generator=run-pod/v1 or kubectl create instead.
 deployment.apps/app created
+service/app created
+Waiting for deployment "app" rollout to finish: 0 of 1 updated replicas are available...
+deployment "app" successfully rolled out
 NAME                   READY   STATUS    RESTARTS   AGE
-app-597cb487b7-pvbbk   0/1     Pending   0          0s
-error: unable to forward port because pod is not running. Current status=Pending
+app-597cb487b7-pvbbk   1/1     Running   0          18s
+Forwarding from 127.0.0.1:8000 -> 8080
+Forwarding from [::1]:8000 -> 8080
 ```
 
-* Wait a couple of minutes until the pod is ready, then you can run the script again: `./run_kubernetes.sh`. *Waiting*: You can check on your pod’s status with a call to `kubectl get pod` and you should see the status change to Running. Then you can run the full `./run_kuberenets.sh` script again.
-
-Example output:
-```shell
-Error from server (AlreadyExists): deployments.apps "app" already exists
-NAME                   READY   STATUS    RESTARTS   AGE
-app-597cb487b7-pvbbk   1/1     Running   0          9m59s
-Forwarding from 127.0.0.1:8000 -> 80
-Forwarding from [::1]:8000 -> 80
-```
-
-* Open a new tab an make a prediction as you did before: `./make_prediction.sh`
-In this terminal you should see (example prediction):
+* Open a new tab and make a prediction as you did before: `./make_prediction.sh`
 ```shell
 Port: 8000
 {
   "prediction": [
-    20.35373177134412
+    28.320740468089017
   ]
 }
-
 ```
 
-* Run: `./run_kuberenets.sh`
-Example output:
-```shell
-Error from server (AlreadyExists): deployments.apps "app" already exists
-NAME                   READY   STATUS    RESTARTS   AGE
-app-597cb487b7-pvbbk   1/1     Running   0          14m
-Forwarding from 127.0.0.1:8000 -> 80
-Forwarding from [::1]:8000 -> 80
-```
+* Tear the deployment down without deleting the cluster: `kubectl delete -f k8s-deployment.yaml`
 
 6. Delete cluster: `minikube delete`
 Output:

@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+
+# Environments
+.env
+.venv
+env/
+venv/
+
+# Generated model artifacts: produced by `python train.py`, never committed, so
+# the scikit-learn from requirements.txt is always the one that wrote them.
+model_data/*.joblib
+
+# Secrets and keys
+secrets/
+credentials*
+*.pem
+*.key
+
+# Logs and local databases
+*.log
+*.sqlite
+*.sqlite3
+*.db
+
+# macOS / editors
+.DS_Store
+.vscode/
+.idea/

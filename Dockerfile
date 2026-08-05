@@ -7,8 +7,11 @@ WORKDIR /app
 ## Step 2:
 # Install packages from requirements.txt first, so a source change does not
 # invalidate the dependency layer.
-# hadolint ignore=DL3013
 COPY requirements.txt /app/
+# DL3013 is for the unpinned `--upgrade pip`. The ignore must be the line directly
+# above the RUN: hadolint attaches it to the instruction that follows, so anything
+# in between, even another comment, silently detaches it.
+# hadolint ignore=DL3013
 RUN pip install --no-cache-dir --upgrade pip &&\
     pip install --no-cache-dir -r requirements.txt
 

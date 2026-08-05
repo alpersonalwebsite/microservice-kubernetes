@@ -24,12 +24,12 @@ def load_artifact(path, what):
     """Loads a joblib artifact, or explains how to produce it."""
     try:
         return joblib.load(path)
-    except FileNotFoundError:
+    except FileNotFoundError as exc:
         raise RuntimeError(
             f"{what} not found at {path}. Run `python train.py` first. This repo "
             "generates the model and the scaler from model_data/housing.csv "
             "instead of committing them, so the scikit-learn you installed from "
-            "requirements.txt is always the one that wrote them.")
+            "requirements.txt is always the one that wrote them.") from exc
 
 
 # Loaded at import time, not inside __main__. Under gunicorn or any other WSGI

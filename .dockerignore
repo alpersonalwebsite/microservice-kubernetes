@@ -1,0 +1,21 @@
+# Mirrors .gitignore: the build context should not carry history, virtualenvs,
+# secrets or generated artifacts. train.py regenerates the model inside the image.
+.git
+.gitignore
+.circleci
+__pycache__/
+*.py[cod]
+.env
+.venv
+env/
+venv/
+model_data/*.joblib
+secrets/
+credentials*
+*.pem
+*.key
+*.log
+output_txt_files/
+README.md
+Makefile
+*.sh

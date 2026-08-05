@@ -27,7 +27,11 @@ jobs:
               python3 -m venv venv
               . venv/bin/activate
               make install
+              # Verify the download instead of trusting whatever the URL serves.
+              # sha256 of the v1.16.3 Linux x86_64 release binary.
               wget -O /bin/hadolint https://github.com/hadolint/hadolint/releases/download/v1.16.3/hadolint-Linux-x86_64 &&\
+              echo "7224a0304415823a8f8767c99b3f769b1f57e06f4d89d18783cc23a5fe0669c5  /bin/hadolint" | sha256sum --check --status ||\
+                { echo "hadolint checksum mismatch, refusing to run it"; exit 1; } &&\
               chmod +x /bin/hadolint
       - save_cache:
           paths:

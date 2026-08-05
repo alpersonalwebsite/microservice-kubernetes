@@ -52,6 +52,12 @@ At this point, you environment should be ready.
 
    It listens on **8080** by default, not 80: the container runs as a non-root user
    and an unprivileged user cannot bind a port below 1024. Override with `PORT`.
+
+   `/predict` expects all six features (`CHAS`, `RM`, `TAX`, `PTRATIO`, `B`,
+   `LSTAT`). A malformed payload, or one missing a feature, returns a **500** and
+   Flask's HTML error page rather than a JSON error. That is deliberate for a demo
+   of this size: input validation and JSON error handlers are what the Flask repos
+   next door cover.
 2. Run in Docker:  First, be sure that you have `Docker` running. Then: `./run_docker.sh`
 
 Example output:
@@ -139,6 +145,17 @@ users:
 
 This applies `k8s-deployment.yaml` and waits for the rollout before forwarding the
 port.
+
+The manifest sets `imagePullPolicy: IfNotPresent`, because a `:latest` tag otherwise
+defaults to `Always` and the kubelet goes to the registry for an image you may have
+only built locally, giving `ImagePullBackOff`. If you are on minikube, either push
+the image first with `./upload_docker.sh` or load your local build into the cluster:
+
+```shell
+minikube image load app:latest
+```
+
+and point the Deployment at it: `kubectl set image deployment/app app=app:latest`.
 
 **What changed and why.** The script used to run:
 

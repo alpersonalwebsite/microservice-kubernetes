@@ -28,6 +28,11 @@ spec:
           # Replace with your own Docker ID/path, or set it via
           # `kubectl set image deployment/app app=<your-id>/app:<tag>`.
           image: underneaththebridge/app:latest
+          # A :latest tag defaults to imagePullPolicy: Always, which sends the
+          # kubelet to the registry even when you have just built the image
+          # locally and never pushed it, giving ImagePullBackOff. The README's
+          # flow is build-then-apply, so prefer the local image if it is there.
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           securityContext:
@@ -54,11 +59,19 @@ spec:
               path: /
               port: 8080
             initialDelaySeconds: 5
+          # Cold start imports pandas, scipy and sklearn and loads two joblib
+          # artifacts, under a 500m CPU limit. With the default period of 10s and
+          # threshold of 3, a 15s delay left ~45s before a restart, so a slow node
+          # produced a CrashLoopBackOff that looks like an application bug.
+          # Kubernetes 1.18 added startupProbe for exactly this, but it landed the
+          # day after this repo was created, so widen the liveness window instead.
           livenessProbe:
             httpGet:
               path: /
               port: 8080
-            initialDelaySeconds: 15
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
       volumes:
         - name: tmp
           emptyDir: {}
